@@ -1,0 +1,173 @@
+[root@localhost data]#
+[root@localhost data]# git clone https://github.com/Lukerome/es-task.git
+Cloning into 'es-task'...
+remote: Enumerating objects: 55, done.
+remote: Counting objects: 100% (55/55), done.
+remote: Compressing objects: 100% (51/51), done.
+remote: Total 55 (delta 28), reused 11 (delta 3), pack-reused 0 (from 0)
+Unpacking objects: 100% (55/55), done.
+[root@localhost data]#
+[root@localhost data]# ls -lrth es-task
+total 24K
+drwxr-xr-x 2 root root   75 Sep 28 13:15 scripts
+-rw-r--r-- 1 root root 1.5K Sep 28 13:15 README.md
+drwxr-xr-x 2 root root   33 Sep 28 13:15 es
+-rw-r--r-- 1 root root  838 Sep 28 13:15 Chart.yaml
+drwxr-xr-x 4 root root  133 Sep 28 13:15 templates
+-rw-r--r-- 1 root root  15K Sep 28 13:15 values.yaml
+[root@localhost data]#
+[root@localhost data]# helm install -name es-task es-task -f es-task/values.yaml -n default
+NAME: es-task
+LAST DEPLOYED: Sun Sep 28 13:16:00 2025
+NAMESPACE: default
+STATUS: deployed
+REVISION: 1
+TEST SUITE: None
+[root@localhost data]#
+[root@localhost data]# helm list -n default
+NAME    NAMESPACE       REVISION        UPDATED                                 STATUS          CHART                   APP VERSION
+es-task default         1               2025-09-28 13:16:00.737793347 -0700 PDT deployed        elasticsearch-1.11.0    1.11.0
+[root@localhost data]#
+[root@localhost data]# kubectl get pv
+NAME          CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS      CLAIM                           STORAGECLASS      VOLUMEATTRIBUTESCLASS   REASON   AGE
+local-pv-01   1Gi        RWO            Delete           Bound       default/data-es-task-master-0   csi-disk-master   <unset>                          60s
+local-pv-02   1Gi        RWO            Delete           Available                                   csi-disk-data     <unset>                          60s
+local-pv-03   1Gi        RWO            Delete           Available                                   csi-disk-data     <unset>                          60s
+local-pv-04   1Gi        RWO            Delete           Bound       default/data-es-task-data-0     csi-disk-data     <unset>                          60s
+[root@localhost data]#
+[root@localhost data]# kubectl get pvc
+NAME                    STATUS   VOLUME        CAPACITY   ACCESS MODES   STORAGECLASS      VOLUMEATTRIBUTESCLASS   AGE
+data-es-task-data-0     Bound    local-pv-04   1Gi        RWO            csi-disk-data     <unset>                 65s
+data-es-task-master-0   Bound    local-pv-01   1Gi        RWO            csi-disk-master   <unset>                 65s
+[root@localhost data]#
+[root@localhost data]# kubectl get svc
+NAME                 TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)                                                       AGE
+es-task-data-svc     NodePort    10.43.73.62     <none>        9300:32006/TCP,9200:32005/TCP,9600:32525/TCP,9650:31842/TCP   72s
+es-task-discovery    NodePort    10.43.121.236   <none>        9300:32004/TCP                                                72s
+es-task-kibana-svc   NodePort    10.43.46.224    <none>        5601:32003/TCP                                                72s
+kubernetes           ClusterIP   10.43.0.1       <none>        443/TCP                                                       14h
+[root@localhost data]#
+[root@localhost data]#
+[root@localhost data]# kubectl get sts
+NAME             READY   AGE
+es-task-data     1/1     77s
+es-task-master   1/1     77s
+[root@localhost data]#
+[root@localhost data]# kubectl get pods
+NAME                              READY   STATUS    RESTARTS   AGE
+es-task-data-0                    1/1     Running   0          84s
+es-task-kibana-574fb4c774-4z9t9   1/1     Running   0          84s
+es-task-master-0                  1/1     Running   0          84s
+[root@localhost data]#
+[root@localhost data]# kubectl exec es-task-data-0 -- curl -s -u admin:admin https://es-task-data-svc:9200/_cat/health?v -k
+Defaulted container "elasticsearch" out of: elasticsearch, init-sysctl (init), fixmount (init)
+Open Distro Security not initialized.[root@localhost data]#
+[root@localhost data]#
+[root@localhost data]# kubectl exec -it es-task-master-0 -- bash -c "/usr/share/elasticsearch/plugins/opendistro_security/tools/securityadmin.sh -cd /usr/share/elasticsearch/plugins/opendistro_security/securityconfig -icl -key /usr/share/elasticsearch/config/kirk-key.pem -cert /usr/share/elasticsearch/config/kirk.pem -cacert /usr/share/elasticsearch/config/root-ca.pem -nhnv"
+Defaulted container "elasticsearch" out of: elasticsearch, init-sysctl (init), fixmount (init)
+Open Distro Security Admin v7
+Will connect to localhost:9300 ... done
+Connected as CN=kirk,OU=client,O=client,L=test,C=de
+Elasticsearch Version: 7.9.1
+Open Distro Security Version: 1.11.0.0
+Contacting elasticsearch cluster 'elasticsearch' and wait for YELLOW clusterstate ...
+Clustername: es-task
+Clusterstate: YELLOW
+Number of nodes: 2
+Number of data nodes: 2
+.opendistro_security index already exists, so we do not need to create one.
+Populate config from /usr/share/elasticsearch/plugins/opendistro_security/securityconfig/
+Will update '_doc/config' with /usr/share/elasticsearch/plugins/opendistro_security/securityconfig/config.yml
+   SUCC: Configuration for 'config' created or updated
+Will update '_doc/roles' with /usr/share/elasticsearch/plugins/opendistro_security/securityconfig/roles.yml
+   SUCC: Configuration for 'roles' created or updated
+Will update '_doc/rolesmapping' with /usr/share/elasticsearch/plugins/opendistro_security/securityconfig/roles_mapping.yml
+   SUCC: Configuration for 'rolesmapping' created or updated
+Will update '_doc/internalusers' with /usr/share/elasticsearch/plugins/opendistro_security/securityconfig/internal_users.yml
+   SUCC: Configuration for 'internalusers' created or updated
+Will update '_doc/actiongroups' with /usr/share/elasticsearch/plugins/opendistro_security/securityconfig/action_groups.yml
+   SUCC: Configuration for 'actiongroups' created or updated
+Will update '_doc/tenants' with /usr/share/elasticsearch/plugins/opendistro_security/securityconfig/tenants.yml
+   SUCC: Configuration for 'tenants' created or updated
+Will update '_doc/nodesdn' with /usr/share/elasticsearch/plugins/opendistro_security/securityconfig/nodes_dn.yml
+   SUCC: Configuration for 'nodesdn' created or updated
+Will update '_doc/whitelist' with /usr/share/elasticsearch/plugins/opendistro_security/securityconfig/whitelist.yml
+   SUCC: Configuration for 'whitelist' created or updated
+Will update '_doc/audit' with /usr/share/elasticsearch/plugins/opendistro_security/securityconfig/audit.yml
+   SUCC: Configuration for 'audit' created or updated
+Done with success
+[root@localhost data]#
+[root@localhost data]# kubectl scale statefulset es-task-data --replicas=3
+statefulset.apps/es-task-data scaled
+[root@localhost data]#
+[root@localhost data]# kubectl get pods
+NAME                              READY   STATUS            RESTARTS       AGE
+es-task-data-0                    1/1     Running           1 (4m4s ago)   5m36s
+es-task-data-1                    0/1     PodInitializing   0              8s
+es-task-kibana-574fb4c774-4z9t9   1/1     Running           0              5m36s
+es-task-master-0                  1/1     Running           1 (4m4s ago)   5m36s
+[root@localhost data]#
+[root@localhost data]# kubectl get pods
+NAME                              READY   STATUS     RESTARTS        AGE
+es-task-data-0                    1/1     Running    1 (4m16s ago)   5m48s
+es-task-data-1                    1/1     Running    0               20s
+es-task-data-2                    0/1     Init:1/2   0               10s
+es-task-kibana-574fb4c774-4z9t9   1/1     Running    0               5m48s
+es-task-master-0                  1/1     Running    1 (4m16s ago)   5m48s
+[root@localhost data]# kubectl get pods
+NAME                              READY   STATUS    RESTARTS        AGE
+es-task-data-0                    1/1     Running   1 (4m47s ago)   6m19s
+es-task-data-1                    1/1     Running   0               51s
+es-task-data-2                    1/1     Running   0               41s
+es-task-kibana-574fb4c774-4z9t9   1/1     Running   0               6m19s
+es-task-master-0                  1/1     Running   1 (4m47s ago)   6m19s
+[root@localhost data]# kubectl exec es-task-data-0 -- curl -s -u admin:admin https://es-task-data-svc:9200/_cluster/health -k
+Defaulted container "elasticsearch" out of: elasticsearch, init-sysctl (init), fixmount (init)
+{"cluster_name":"es-task","status":"green","timed_out":false,"number_of_nodes":2,"number_of_data_nodes":2,"active_primary_shards":7,"active_shards":14,"relocating_shards":0,"initializing_shards":0,"unassigned_shards":0,"delayed_unassigned_shards":0,"number_of_pending_tasks":0,"number_of_in_flight_fetch":0,"task_max_waiting_in_queue_millis":0,"active_shards_percent_as_number":100.0}
+[root@localhost data]# kubectl exec es-task-data-0 -- curl -s -u admin:admin https://es-task-data-svc:9200/_cat/health?v -k
+Defaulted container "elasticsearch" out of: elasticsearch, init-sysctl (init), fixmount (init)
+epoch      timestamp cluster status node.total node.data shards pri relo init unassign pending_tasks max_task_wait_time active_shards_percent
+1759091018 20:23:38  es-task green           2         2     14   7    0    0        0             0                  -                100.0%
+[root@localhost data]#
+[root@localhost data]# ES_IP=`kubectl get svc es-task-data-svc -o yaml | awk -F":" '/clusterIP:/ {print $2}'|tr -d ' '`
+[root@localhost data]# curl -u admin:admin -k https://${ES_IP}:9200/_cluster/health
+{"cluster_name":"es-task","status":"green","timed_out":false,"number_of_nodes":2,"number_of_data_nodes":2,"active_primary_shards":7,"active_shards":14,"relocating_shards":0,"initializing_shards":0,"unassigned_shards":0,"delayed_unassigned_shards":0,"number_of_pending_tasks":0,"number_of_in_flight_fetch":0,"task_max_waiting_in_queue_millis":0,"active_shards_percent_as_number":100.0}[root@localhost data]#
+[root@localhost data]#
+[root@localhost data]# curl -u admin:admin -k https://${ES_IP}:9200/_cat/health?v
+epoch      timestamp cluster status node.total node.data shards pri relo init unassign pending_tasks max_task_wait_time active_shards_percent
+1759091159 20:25:59  es-task green           2         2     14   7    0    0        0             0                  -                100.0%
+[root@localhost data]#
+[root@localhost data]#
+[root@localhost data]# sh es-task/scripts/create_template.sh
+{"acknowledged":true}[root@localhost data]#
+[root@localhost data]#
+[root@localhost data]# sh es-task/scripts/insert_doc.sh
+{"_index":"sample-index","_type":"_doc","_id":"xf4GkpkB6MXrZ-cdO3it","_version":1,"result":"created","_shards":{"total":2,"successful":1,"failed":0},"_seq_no":0,"_primary_term":1}[root@localhost data]#
+[root@localhost data]#
+[root@localhost data]# sh es-task/scripts/test/search.sh
+sh: es-task/scripts/test/search.sh: No such file or directory
+[root@localhost data]# sh es-task/scripts/test_search.sh
+curl -X GET -k https://10.43.73.62:9200/sample-index/_count -H Content-Type: application/json -u admin:admin -d'
+{
+  "query": {
+    "match": {
+      "exif.make": "OnePlus"
+    }
+  }
+}'
+{"count":0,"_shards":{"total":3,"successful":3,"skipped":0,"failed":0}}
+
+
+curl -X GET -k https://10.43.73.62:9200/sample-index/_count -H Content-Type: application/json -u admin:admin -d'
+{
+  "query": {
+    "match": {
+      "file.name": "photo-6"
+    }
+  }
+}'
+{"count":1,"_shards":{"total":3,"successful":3,"skipped":0,"failed":0}}
+
+
+
+
